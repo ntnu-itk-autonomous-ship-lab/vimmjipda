@@ -253,7 +253,6 @@ class VIMMJIPDA:
         
         tracks.sort(key=lambda x: x[0])
         #Return tracks and sensor_measurements
-        #print("Testing that VIMMJIPDA is running")
         return tracks, sensor_measurements
 
 
