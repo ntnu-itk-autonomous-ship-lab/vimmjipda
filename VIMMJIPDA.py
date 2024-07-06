@@ -145,7 +145,7 @@ class VIMMJIPDA(ITracker):
 
         ownship_pos = State(ownship_mean, ownship_cov, t)
 
-
+        print("Testing that VIMMJIPDA is running")
         """
         The measurement set needs to be a set containing construct.Measurement object
         This comes on the form Construct.Measurement(measurement, measurement_params['cart_cov'],  float(timestamp))
