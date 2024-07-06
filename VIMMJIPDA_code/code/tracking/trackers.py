@@ -1,6 +1,6 @@
 import numpy as np
 from copy import deepcopy
-from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_testing.code.tracking import utilities
+from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_code.code.tracking import utilities
 
 
 class Tracker():

@@ -1,5 +1,5 @@
-from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_testing.code.tracking import utilities, constructs
-from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_testing.code.tracking.models import KinematicModel
+from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_code.code.tracking import utilities, constructs
+from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_code.code.tracking.models import KinematicModel
 import numpy as np
 import anytree
 import copy
