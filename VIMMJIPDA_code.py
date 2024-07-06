@@ -12,13 +12,13 @@ from typing import Optional, Tuple
 
 
 #Colav-simulator imports
-from colav_simulator.core.tracking.trackers import ITracker
+#from colav_simulator.core.tracking.trackers import ITracker
 from colav_simulator.core.sensing import Radar
 
 #VIMMJIPDA Imports
-from VIMMJIPDA_interface.VIMMJIPDA.code.tracking.constructs import State, Measurement
-from VIMMJIPDA_interface.VIMMJIPDA.code.run import setup_manager
-from VIMMJIPDA_interface.VIMMJIPDA.code.tracking.managers import Manager
+from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_testing.code.tracking.constructs import State, Measurement
+from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_testing.code.run import setup_manager
+from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_testing.code.tracking.managers import Manager
 
 
 
@@ -42,7 +42,7 @@ class VIMMJIPDAParams:
 
 
 
-class VIMMJIPDA(ITracker):
+class VIMMJIPDA:
     """The VIMMJIPDA class implements the VIMMJIPDA (Visibility Interacting Multiple Models Joint Integrated Probabilistic Data Association) tracker by
     Audun Gulliksstad Hem, Edmund Førland Brekke and Lars-Christian Ness Tokle, introduced in the article:
     "Multitarget Tracking With Multiple Models and Visibility: Derivation and Verification on Maritime Radar Data"
@@ -253,7 +253,7 @@ class VIMMJIPDA(ITracker):
         
         tracks.sort(key=lambda x: x[0])
         #Return tracks and sensor_measurements
-        print("Testing that VIMMJIPDA is running")
+        #print("Testing that VIMMJIPDA is running")
         return tracks, sensor_measurements
 
 
@@ -290,3 +290,5 @@ class VIMMJIPDA(ITracker):
         tracks.sort(key=lambda x: x[0])
         
         return tracks, self._NIS
+
+
