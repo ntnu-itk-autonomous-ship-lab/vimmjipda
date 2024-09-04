@@ -1,6 +1,3 @@
-from copy import copy
-import numpy as np
-
 class Manager(object):
     def __init__(self, tracker, initiator, terminator, confirmation_threshold):
         self.tracker = tracker
@@ -13,8 +10,8 @@ class Manager(object):
         self.__confirmation_threshold__ = confirmation_threshold
 
     def step(self, measurements, timestamp, **kwargs):
-        if 'ownship' in kwargs.keys():
-            self.tracker.filter.measurement_model.set_ownship_position(kwargs['ownship'])
+        if "ownship" in kwargs.keys():
+            self.tracker.filter.measurement_model.set_ownship_position(kwargs["ownship"])
 
         tracks, unused_measurements = self.tracker.step(self.tracks | self.preliminary_tracks, measurements, timestamp)
 
@@ -22,10 +19,11 @@ class Manager(object):
 
         self.tracks, self.preliminary_tracks = self.__confirm_tracks__(tracks)
 
-        self.preliminary_tracks = self.preliminary_tracks | self.initiator.step(unused_measurements, measurements=measurements, timestamp=timestamp)
+        self.preliminary_tracks = self.preliminary_tracks | self.initiator.step(
+            unused_measurements, measurements=measurements, timestamp=timestamp
+        )
 
         self.__update_track_history__()
-
 
     def __update_track_history__(self):
         for track in self.tracks:
