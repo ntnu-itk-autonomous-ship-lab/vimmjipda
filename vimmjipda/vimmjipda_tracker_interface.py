@@ -108,8 +108,8 @@ class VIMMJIPDA(cs_trackers.ITracker):
         # Here, mean is the position on the form: (E, V_E, N, V_N, 0). Where E = East, N = North, V = Velocity
         # Covariance = np.Identity(4)
         # Timestamp = t and ID can be skipped
-        os_course = mf.wrap_angle_to_pmpi(ownship_state[2] + np.arctan2(ownship_state[4], ownship_state[3]))
-        os_speed = np.linalg.norm(ownship_state[3:5])
+        os_course = np.arctan2(ownship_state[3], ownship_state[2])
+        os_speed = np.linalg.norm(ownship_state[2:4])
         ownship_mean = np.asarray(
             [ownship_state[1], os_speed * np.sin(os_course), ownship_state[0], os_speed * np.cos(os_course), 0]
         )

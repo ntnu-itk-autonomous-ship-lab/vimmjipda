@@ -12,7 +12,8 @@ import shapely.geometry as sgeo
 import vimmjipda.paths as paths
 import vimmjipda.vimmjipda_tracker_interface as vti
 
-if __name__ == "__main__":
+
+def test_vimmjipda_interface() -> None:
     rparams = sensing.RadarParams()
     rparams.generate_clutter = True
     rparams.detection_probability = 0.95
@@ -49,7 +50,8 @@ if __name__ == "__main__":
     for k in range(100):
         t = k * dt
 
-        tracks, meas = vimmjipda_tracker.track(t, dt, true_do_states, ownship_state)
+        ownship_state_vxvy = mhm.convert_state_to_vxvy_state(ownship_state)
+        tracks, meas = vimmjipda_tracker.track(t, dt, true_do_states, ownship_state_vxvy)
 
         for track in tracks:
             if track[0] not in track_labels:
@@ -129,4 +131,6 @@ if __name__ == "__main__":
 
     vimmjipda_tracker.reset()
 
-    print("done")
+
+if __name__ == "__main__":
+    test_vimmjipda_interface()
