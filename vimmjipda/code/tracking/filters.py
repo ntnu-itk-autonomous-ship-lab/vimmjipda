@@ -1,20 +1,25 @@
-from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_code.code.tracking import utilities, constructs
-from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_code.code.tracking.models import KinematicModel
-import numpy as np
-import anytree
 import copy
 
-class StateFilter():
+import anytree
+import numpy as np
+from vimmjipda.code.tracking import constructs, utilities
+from vimmjipda.code.tracking.models import KinematicModel
+
+
+class StateFilter:
     """
     Generic Filter class.
     """
+
     def __init__(self):
         pass
+
 
 class KalmanFilter(StateFilter):
     """
     A regular Kalman filter class.
     """
+
     def __init__(self, measurement_model):
         self.measurement_model = measurement_model
 
@@ -31,6 +36,7 @@ class KalmanFilter(StateFilter):
     """
     Returns the predicted measurements on the same form as the tree of states.
     """
+
     def __get_predicted_measurements__(self, states):
         predicted_measurements = copy.deepcopy(states)
         for predicted_measurement in predicted_measurements.leaves:
@@ -42,8 +48,8 @@ class KalmanFilter(StateFilter):
         if innovation is None:
             return
         predictions = track.predicted_measurements
-        innovation.reshape(len(track.states),innovation.shape[-2],innovation.shape[-1])
-        weights.reshape(len(track.states),innovation.shape[-2]+1)
+        innovation.reshape(len(track.states), innovation.shape[-2], innovation.shape[-1])
+        weights.reshape(len(track.states), innovation.shape[-2] + 1)
 
         # loop through and update all states
         for i, (state, prediction) in enumerate(zip(track.states.leaves, predictions.leaves)):
@@ -52,6 +58,7 @@ class KalmanFilter(StateFilter):
     """
     Updating of an individual state, i.e. the update step of the Kalman filter.
     """
+
     def __update_state__(self, state, pred, innovation_all, weights):
         covariance = state.covariance
         mean = state.mean
@@ -61,24 +68,26 @@ class KalmanFilter(StateFilter):
         n_z = H.shape[0]
         n_x = H.shape[1]
 
-        kalman_gain = np.dot(covariance,np.dot(H.T, S_inv)).reshape((n_x, n_z))
+        kalman_gain = np.dot(covariance, np.dot(H.T, S_inv)).reshape((n_x, n_z))
         total_innovation = np.zeros((n_z, 1))
         cov_terms = np.zeros((n_z, n_z))
         for innovation, weight in zip(innovation_all, weights[:-1]):
-            total_innovation += weight*innovation.reshape(n_z,1)
+            total_innovation += weight * innovation.reshape(n_z, 1)
             innovation_vec = innovation.reshape((n_z, 1))
-            cov_terms += weight*innovation_vec.dot(innovation_vec.T)
+            cov_terms += weight * innovation_vec.dot(innovation_vec.T)
         cov_terms -= total_innovation.dot(total_innovation.T)
         soi = np.dot(kalman_gain, np.dot(cov_terms, kalman_gain.T))
         P_c = np.dot(kalman_gain, np.dot(S, kalman_gain.T))
-        mean = mean+kalman_gain.dot(total_innovation).reshape(n_x)
-        covariance = covariance-(1-weights[-1])*P_c+soi
+        mean = mean + kalman_gain.dot(total_innovation).reshape(n_x)
+        covariance = covariance - (1 - weights[-1]) * P_c + soi
         state.update(mean, covariance)
+
 
 class IMMFilter(KalmanFilter):
     """
     An Extended Kalman Filter class working with several kinematic models.
     """
+
     def __init__(self, measurement_model, mode_transition_matrix):
         super().__init__(measurement_model)
         self.__mode_transition_matrix__ = mode_transition_matrix
@@ -91,7 +100,7 @@ class IMMFilter(KalmanFilter):
         probabilities.
         """
         # get the prior mode-conditional states
-        for state in anytree.findall_by_attr(track.states, 1, name='height'):
+        for state in anytree.findall_by_attr(track.states, 1, name="height"):
             self.__IMM_mix__(state)
 
         # loop through and predict all states
@@ -99,15 +108,14 @@ class IMMFilter(KalmanFilter):
             predicted_mean, predicted_covariance = state.name.step(state, dt)
             state.update(predicted_mean, predicted_covariance)
 
-
         track.predicted_measurements = self.__get_predicted_measurements__(track.states)
         return track
 
     def __IMM_mix__(self, state):
         mode_probabilities = state.mode_probabilities
-        joint_mode_probabilities = np.transpose(np.multiply(self.__mode_transition_matrix__.T,mode_probabilities))
-        prior_mode_probabilities = np.sum(joint_mode_probabilities,axis=0)
-        conditional_mode_probabilities = np.divide(joint_mode_probabilities,prior_mode_probabilities)
+        joint_mode_probabilities = np.transpose(np.multiply(self.__mode_transition_matrix__.T, mode_probabilities))
+        prior_mode_probabilities = np.sum(joint_mode_probabilities, axis=0)
+        conditional_mode_probabilities = np.divide(joint_mode_probabilities, prior_mode_probabilities)
         state.mode_probabilities = prior_mode_probabilities
         means, covariances = state.get_mean_covariance_array()
         means, covariances = utilities.gaussian_mixture(means, covariances, conditional_mode_probabilities)

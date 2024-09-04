@@ -1,5 +1,16 @@
+import vimmjipda.code.tracking.initiators as initiators
+import vimmjipda.code.tracking.terminators as terminators
+import vimmjipda.code.tracking.trackers as trackers
+
+
 class Manager(object):
-    def __init__(self, tracker, initiator, terminator, confirmation_threshold):
+    def __init__(
+        self,
+        tracker: trackers.Tracker,
+        initiator: initiators.Initiator,
+        terminator: terminators.Terminator,
+        confirmation_threshold: float,
+    ):
         self.tracker = tracker
         self.initiator = initiator
         self.terminator = terminator
@@ -8,6 +19,13 @@ class Manager(object):
         self.preliminary_track_history = dict()
         self.preliminary_tracks = set()
         self.__confirmation_threshold__ = confirmation_threshold
+
+    def reset(self):
+        self.track_history = dict()
+        self.tracks = set()
+        self.preliminary_track_history = dict()
+        self.preliminary_tracks = set()
+        self.terminator.reset()
 
     def step(self, measurements, timestamp, **kwargs):
         if "ownship" in kwargs.keys():

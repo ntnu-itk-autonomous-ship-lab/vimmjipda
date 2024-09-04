@@ -8,14 +8,17 @@
 """
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import colav_simulator.common.math_functions as mf
 import colav_simulator.core.sensing as cs_sensing
 import colav_simulator.core.tracking.trackers as cs_trackers
 import numpy as np
+import vimmjipda.code.tracking.constructs as constructs
+import vimmjipda.code.tracking.managers as managers
+import yaml
 from vimmjipda.code.setup import setup_manager
-from vimmjipda.code.tracking.constructs import Measurement, State
-from vimmjipda.code.tracking.managers import Manager
 
 
 @dataclass
@@ -42,6 +45,12 @@ class VIMMJIPDAParams:
             enable_visibility=config_dict["enable_visibility"],
         )
 
+    @classmethod
+    def from_yaml(cls, file: Path):
+        with open(file, "r") as f:
+            config_dict = yaml.safe_load(f)
+        return cls.from_dict(config_dict)
+
 
 class VIMMJIPDA(cs_trackers.ITracker):
     """The VIMMJIPDA class implements the VIMMJIPDA (Visibility Interacting Multiple Models Joint Integrated Probabilistic Data Association) tracker by
@@ -54,196 +63,126 @@ class VIMMJIPDA(cs_trackers.ITracker):
     NOTE: Only supports the Radar sensor at the moment, and needs to be checked for bugs.
     """
 
-    def __init__(self, sensor_list: list, params: Optional[VIMMJIPDAParams] = None) -> None:
-        # TODO Add functionality to input sensors. (Give error message for not using radar???)
-
+    def __init__(
+        self, sensor_list: Optional[List[cs_sensing.ISensor]] = None, params: Optional[VIMMJIPDAParams] = None
+    ) -> None:
         if params is not None:
             self._params: VIMMJIPDAParams = params
         else:
             self._params = VIMMJIPDAParams()
-
         self.sensors: list = sensor_list
 
-        self._track_initialized: list = []
-        self._track_terminated: list = []
-        self._labels: list = []  # List of DO IDs and labels
-        self._means: list = []
-        self._covs: list = []
-        self._length_upd: list = []  # List of DO length estimates. Assumed known
-        self._width_upd: list = []  # List of DO width estimates. Assumed known
-        self._NIS: list = []
+        self._en_to_ne_pmatrix: np.ndarray = np.array([[0, 0, 1, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 1, 0, 0]])
+        self._t_prev: float = 0.0
+        self._recent_sensor_measurements: list = []
 
-        self._manager: Manager = setup_manager(
+        self._manager: managers.Manager = setup_manager(
             IMM_off=not self._params.enable_imm,
             single_target=self._params.single_target,
             visibility_off=not self._params.enable_visibility,
         )
         self._sorted_track_indexes: list = []
 
+    def set_sensor_list(self, sensor_list: List[cs_sensing.ISensor]) -> None:
+        self.sensors = sensor_list
+
     def track(
         self, t: float, dt: float, true_do_states: List[Tuple[int, np.ndarray, float, float]], ownship_state: np.ndarray
     ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[Tuple[int, np.ndarray]]]:
-        max_sensor_range = max([sensor.max_range for sensor in self.sensors])
-        for (
-            do_idx,
-            do_state,
-            do_length,
-            do_width,
-        ) in true_do_states:
-            dist_ownship_to_do = np.linalg.norm(do_state[:2] - ownship_state[:2])
-            if (
-                do_idx not in self._labels and dist_ownship_to_do < max_sensor_range
-            ):  # Check if DO is not already detected and is closer than max sensor range
-                # New track. TODO: Implement track initiation, e.g. n out of m based initiation.
-                self._labels.append(do_idx)  # Add DO-ID to tracker Labels
-                self._track_initialized.append(False)  # ? Why are these false still?ownship
-                self._track_terminated.append(False)  # ? Why is this false still?
-                self._means.append(np.array([0, 0, 0, 0]))
-                self._covs.append(np.eye(5))
-                self._length_upd.append(do_length)  # Include the length of object into tracker
-                self._width_upd.append(do_width)  # Include the width of object into tracker
-                self._NIS.append(np.nan)  # Don't include NIS yet
-            elif do_idx in self._labels:
-                self._track_initialized[self._labels.index(do_idx)] = True  # Set the target as initialized
+        assert self.sensors is not None, "Sensor list is not set."
+        if t <= self._t_prev:
+            tracks, _ = self.get_track_information(ownship_state)
+            return tracks, self._recent_sensor_measurements
 
+        self._t_prev = t
         sensor_measurements = []
         for sensor in self.sensors:
             if isinstance(sensor, cs_sensing.Radar):
                 z = sensor.generate_measurements(t, true_do_states, ownship_state)
                 sensor_measurements.append(z)
-                meas_covariance_NE = sensor._params.R_cartesian
+                meas_covariance_NE = sensor.params.R_ne
+        self._recent_sensor_measurements = sensor_measurements
 
-                # print("clutter = : ", clutter , "type: ", type(clutter))
-                # print(sensor._params.to_dict())
-        # meas_covariance_NE[0][0] = 10 # To see that the covariance comes out correct
-
-        # TODO: Set this value via
-        # print(meas_covariance_XY)
-
-        # TODO: Add functionality for several sensors
-
-        # print(sensor_measurements)
-        # Apply changes to measurements here so that they will fit into the VIMMJIPDA
-        # The measurements already have added noise
-        """ The ownship position needs to be a construct.State object.
-        This comes on the form Construct.State(Mean, Covariance, timestamp, ID)
-        Here, mean is the position on the form: (E, V_E, N, V_N, 0). Where E = East, N = North, V = Velocity
-        Covariance = np.Identity(4)
-        Timestamp = t
-        Id can be skipped
-        """
-        ownship_mean = np.asarray([ownship_state[1], ownship_state[3], ownship_state[0], ownship_state[2], 0])
+        # The ownship position needs to be a construct.State object.
+        # This comes on the form Construct.State(Mean, Covariance, timestamp, ID)
+        # Here, mean is the position on the form: (E, V_E, N, V_N, 0). Where E = East, N = North, V = Velocity
+        # Covariance = np.Identity(4)
+        # Timestamp = t and ID can be skipped
+        os_course = mf.wrap_angle_to_pmpi(ownship_state[2] + np.arctan2(ownship_state[4], ownship_state[3]))
+        os_speed = np.linalg.norm(ownship_state[3:5])
+        ownship_mean = np.asarray(
+            [ownship_state[1], os_speed * np.sin(os_course), ownship_state[0], os_speed * np.cos(os_course), 0]
+        )
         ownship_cov = np.identity(5)
-        ownship_pos = State(ownship_mean, ownship_cov, t)
+        ownship_pos = constructs.State(ownship_mean, ownship_cov, t)
 
-        """
-        The measurement set needs to be a set containing construct.Measurement object
-        This comes on the form Construct.Measurement(measurement, measurement_params['cart_cov'],  float(timestamp))
-        Measurement is the position in xy-coordinates on the form (E,N)
-        measurement_params['cart_cov'] is given in parameters
-        timestamp is given
-        """
-
-        # TODO: Look into, might need if measurements
-        sensor_measurement = set()  # Look at import_data.py to see how to transform data
-        # print(type(sensor_measurement))
-
-        new_meas = False  # Create a variable to see if we are on a timestep that matches with sensor measurement rates
+        # The measurement set needs to be a set containing construct.Measurement object
+        # This comes on the form Construct.Measurement(measurement, measurement_params['cart_cov'],  float(timestamp))
+        # Measurement is the position in xy-coordinates on the form (E,N)
+        # measurement_params['cart_cov'] is given in parameters
+        # timestamp is given
+        sensor_measurement = set()
+        new_meas = False
+        meas_covariance_EN = np.asarray([[meas_covariance_NE[1][1], 0], [0, meas_covariance_NE[0][0]]])
         for sensor in sensor_measurements:
-            for meas in sensor:
-                # print(meas, type(meas), " Time: ", t)
-                # for do_idx, do_state, do_length, do_width in true_do_states:
-                #     print(do_state[0], do_state[1])
-                if not np.isnan(meas[0]) and not np.isnan(meas[1]):
-                    values = np.asarray([meas[1], meas[0]])
-                    meas_covariance_XY = np.asarray([[meas_covariance_NE[1][1], 0], [0, meas_covariance_NE[0][0]]])
-
-                    # TODO: Add Functionality to choose if Filter knows the measurement Cov or not
-                    # sensor_measurement.add(Measurement(values, measurement_params['cart_cov'],  t)) # Choose this if Tracker should not know meas cov
-                    sensor_measurement.add(
-                        Measurement(values, meas_covariance_XY, t)
-                    )  # Choose this if Tracker should know meas cov
-
-        for sensor in self.sensors:
-            if isinstance(sensor, cs_sensing.Radar):
-                for i, (_, do_state, do_length, do_width) in enumerate(true_do_states):
-                    if (t - sensor._prev_meas_time) % (1 / sensor._params.measurement_rate) == 0:
-                        new_meas = True
+            for meas_tup in sensor:
+                if np.any(np.isnan(meas_tup[1])):
+                    continue
+                meas_EN = np.asarray([meas_tup[1][1], meas_tup[1][0]])
+                sensor_measurement.add(constructs.Measurement(meas_EN, meas_covariance_EN, t))
+                new_meas = True
 
         if new_meas:
             self._manager.step(sensor_measurement, float(t), ownship=ownship_pos)
 
-        for track in self._manager.tracks:
-            if track.index not in self._sorted_track_indexes:
-                self._sorted_track_indexes.append(track.index)
-                self._sorted_track_indexes.sort()
-
         tracks = []
         for track in self._manager.tracks:
-            # print(type(track))
-            mean_xy, cov_xy = track.states.get_mean_covariance_array()
-            # print(track.states.__len__())
-            # print(track.states.leaves.get_mean_covariance_array())
-            # print('\n mean: \n', mean_xy, type(mean_xy))
-            # print('\n cov: \n', cov_xy, type(cov_xy))
-            # print(cov_xy)
-            mean_NE = np.array([mean_xy[0][2], mean_xy[0][0], mean_xy[0][3], mean_xy[0][1]])
-            # TODO: Transform cov matrix to NE coordinates
-            # TODO: Create func to transform from XY to NE
-            cov_NE = np.array(
-                [
-                    [cov_xy[0][2][2], cov_xy[0][0][2], cov_xy[0][2][3], cov_xy[0][2][1]],
-                    [cov_xy[0][0][2], cov_xy[0][0][0], cov_xy[0][0][3], cov_xy[0][0][1]],
-                    [cov_xy[0][2][3], cov_xy[0][0][3], cov_xy[0][3][3], cov_xy[0][3][1]],
-                    [cov_xy[0][1][2], cov_xy[0][0][1], cov_xy[0][3][1], cov_xy[0][1][1]],
-                ]
-            )
-            # print(track.index)
-            # self._means[track.index - 1] = mean_NE
-            # self._covs[track.index - 1] = cov_NE
-            # print(mean_NE, type(mean_NE), 'mean \n')
-
-            # print('cov xy\n',cov_xy, type(cov_xy), '\n')
-            # print('cov NE\n',cov_NE, type(cov_NE), '\n')
-            # print(true_do_states, 'true states')
-            for i, index in enumerate(self._sorted_track_indexes):
-                if track.index == index:
-                    tracks.append((i, mean_NE, cov_NE, 10.0, 3.0))
+            mean_EN, cov_EN = track.states.get_mean_covariance_array()
+            mean_NE = self._en_to_ne_pmatrix @ mean_EN[0][:4]
+            cov_NE = self._en_to_ne_pmatrix @ cov_EN[0][:4, :4] @ self._en_to_ne_pmatrix.T
+            if not self.check_estimate_extremity(mean_NE, cov_NE):
+                tracks.append(
+                    (track.index, mean_NE, cov_NE, 10.0, 3.0)
+                )  # default values for length and width as they are not estimated
 
         tracks_sorted_by_distance = sorted(tracks, key=lambda x: np.linalg.norm(x[1][:2] - ownship_state[:2]))
-        # Return tracks and sensor_measurements
         return tracks_sorted_by_distance, sensor_measurements
+
+    def check_estimate_extremity(self, mean: np.ndarray, cov: np.ndarray) -> bool:
+        """Check for extreme velocity estimates and unreasonably high covariances
+
+        Args:
+            mean (np.ndarray): The mean of the state estimate
+            cov (np.ndarray): The covariance of the state estimate
+
+        Returns:
+            bool: True if the estimate is unreasonable, False otherwise
+        """
+        if (
+            abs(mean[2]) > 12.0
+            or abs(mean[3]) > 12.0
+            or cov[0, 0] > 50.0**2
+            or cov[1, 1] > 50.0**2
+            or cov[2, 2] > 4.0
+            or cov[3, 3] > 4.0
+        ):
+            return True
+        return False
 
     def get_track_information(
         self, ownship_state: np.ndarray
     ) -> Tuple[List[Tuple[int, np.ndarray, np.ndarray, float, float]], List[float]]:
-
         tracks = []
         for track in self._manager.tracks:
-            mean_xy, cov_xy = track.states.get_mean_covariance_array()
-            mean_NE = np.array([mean_xy[0][2], mean_xy[0][0], mean_xy[0][3], mean_xy[0][1]])
-            cov_NE = np.array(
-                [
-                    [cov_xy[0][2][2], cov_xy[0][0][2], cov_xy[0][2][3], cov_xy[0][2][1]],
-                    [cov_xy[0][0][2], cov_xy[0][0][0], cov_xy[0][0][3], cov_xy[0][0][1]],
-                    [cov_xy[0][2][3], cov_xy[0][0][3], cov_xy[0][3][3], cov_xy[0][3][1]],
-                    [cov_xy[0][1][2], cov_xy[0][0][1], cov_xy[0][3][1], cov_xy[0][1][1]],
-                ]
-            )
+            mean_EN, cov_EN = track.states.get_mean_covariance_array()
+            mean_NE = self._en_to_ne_pmatrix @ mean_EN[0][:4]
+            cov_NE = self._en_to_ne_pmatrix @ cov_EN[0][:4, :4] @ self._en_to_ne_pmatrix.T
 
-            for i, index in enumerate(self._sorted_track_indexes):
-                if track.index == index:
-
-                    tracks.append((index, mean_NE, cov_NE, 10.0, 3.0))
+            tracks.append((track.index, mean_NE, cov_NE, 10.0, 3.0))
 
         tracks_sorted_by_distance = sorted(tracks, key=lambda x: np.linalg.norm(x[1][:2] - ownship_state[:2]))
-        return tracks_sorted_by_distance, self._NIS
+        return tracks_sorted_by_distance, np.nan * np.zeros(len(tracks_sorted_by_distance))
 
     def reset(self) -> None:
         self._manager.reset()
-        self._track_initialized = []
-        self._track_terminated = []
-        self._labels = []
-        self._length_upd = []
-        self._width_upd = []
-        self._NIS = []
+        self._t_prev = 0.0

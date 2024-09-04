@@ -1,4 +1,4 @@
-# VIMMJIPDA_interface
+# vimmjipda_interface
 
 This repository contains the VIMMJIPDA target tracker and the interface for running the colav_simulator with the VIMMJIPDA
 
@@ -7,3 +7,6 @@ The VIMMJIPDA (Visibility Interacting Multiple Models Integrated Probabilistic D
 The source code for the VIMMJIPDA is open-source and available https://codeocean.com/capsule/3448343/tree/v1
 
 The interface for running the VIMMJIPDA in the colav_simulator was created by Ragnar Norbye Wien during the work on his Master's thesis
+
+## Installation
+Run `pip install -e .` in the root folder of this repository. Requires that the `colav-simulator` is installed as an editable package.

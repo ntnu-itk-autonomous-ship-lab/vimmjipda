@@ -1,9 +1,9 @@
-from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_code.code.tracking import models
-from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_code.code.tracking import utilities
-import numpy as np
 import collections
-import anytree
 import copy
+
+import anytree
+import numpy as np
+from vimmjipda.code.tracking import utilities
 
 
 class Cluster(object):
@@ -12,6 +12,7 @@ class Cluster(object):
     measurements in the cluster, and as a tool to pass relevant information
     between functions in a tracker.
     """
+
     def __init__(self, tracks, measurements):
         self.tracks = tracks
         self.measurements = measurements
@@ -21,7 +22,6 @@ class Cluster(object):
 
     def add_measurements(self, measurements):
         self.measurements = self.measurements | measurements
-
 
     def calculate_innovation(self):
         """
@@ -38,14 +38,13 @@ class Cluster(object):
             S.append(S_t.reshape(track_shape + (self.n_z, self.n_z)))
             S_inv.append(np.linalg.inv(S_t).reshape(track_shape + (self.n_z, self.n_z)))
 
-
         if self.measurements == set():
-            innovation = [None]*self.n_tracks
+            innovation = [None] * self.n_tracks
         else:
             innovation = []
             measurement_values = np.array([measurement.value.reshape((self.n_z)) for measurement in self.measurements])
             for t, track in enumerate(self.tracks):
-                innovation.append(measurement_values-z_hat[t])
+                innovation.append(measurement_values - z_hat[t])
         return innovation, S, S_inv
 
     def calculate_measurement_likelihoods(self):
@@ -62,20 +61,19 @@ class Cluster(object):
             determinant = np.linalg.det(self.S[t])
             for j, measurement in enumerate(self.measurements):
 
-                a = np.matmul(innovation[...,j,None,:], S_inv[...,:,:])[...]
+                a = np.matmul(innovation[..., j, None, :], S_inv[..., :, :])[...]
 
-                b = innovation[...,j,:,None]
-                exponent = np.matmul(a,b)[...,0,0]
-                measurement_likelihoods_t[...,j] = np.divide(np.exp(-0.5*exponent),(2*np.pi*np.sqrt(determinant)))
-
-
+                b = innovation[..., j, :, None]
+                exponent = np.matmul(a, b)[..., 0, 0]
+                measurement_likelihoods_t[..., j] = np.divide(
+                    np.exp(-0.5 * exponent), (2 * np.pi * np.sqrt(determinant))
+                )
 
             # to avoid division by zero in the case of large validation gates
             measurement_likelihoods_t[measurement_likelihoods_t < 1e-100] = 1e-100
             measurement_likelihoods.append(measurement_likelihoods_t)
 
         return measurement_likelihoods
-
 
 
 class Track(object):
@@ -88,10 +86,11 @@ class Track(object):
     are defined as a tree structure (Consisting of TrackState instances). The
     one pointed to by self.states is the root of the tree structure.
     """
+
     def __init__(self, timestamp, states, index, existence_probability, **kwargs):
-        self.__allowed_states__ = {'kinematic_models'}
-        self.__allowed_probabilities__ = {'visibility_probability', 'mode_probabilities'}
-        self.__state_probability_combination__ = {'kinematic_models': 'mode_probabilities'}
+        self.__allowed_states__ = {"kinematic_models"}
+        self.__allowed_probabilities__ = {"visibility_probability", "mode_probabilities"}
+        self.__state_probability_combination__ = {"kinematic_models": "mode_probabilities"}
         self.timestamp = timestamp
         self.index = index
         self.measurements = set()
@@ -101,15 +100,14 @@ class Track(object):
         self.states = states
 
     def __eq__(self, other):
-        return (self.index == getattr(other, 'index'))
+        return self.index == getattr(other, "index")
 
     def __hash__(self):
         return hash((self.index, self.timestamp))
 
     def __repr__(self):
         mean, cov = self.posterior
-        return f'Track {self.index}: [{mean[0]:5.2f}, {mean[2]:5.2f}], r = {self.existence_probability}'
-
+        return f"Track {self.index}: [{mean[0]:5.2f}, {mean[2]:5.2f}], r = {self.existence_probability}"
 
     """
     Makes it possible to set the porbabilities of the kinematic models without
@@ -117,18 +115,19 @@ class Track(object):
     track.mode_probabilities = new_probabilities the node of the tree holding
     the mode-probabilities is updated.
     """
+
     def __setattr__(self, property, value):
-        if '__state_probability_combination__' in self.__dict__:
+        if "__state_probability_combination__" in self.__dict__:
             if property in self.__state_probability_combination__.values():
                 level_grouped_nodes = anytree.LevelOrderGroupIter(self.states)
                 for level in level_grouped_nodes:
                     if property in level[0].__dict__:
                         if len(level) > 1:
                             for i, node in enumerate(level):
-                                assert(getattr(node, property).shape == value[i].shape)
-                                setattr(node ,property ,value[i])
+                                assert getattr(node, property).shape == value[i].shape
+                                setattr(node, property, value[i])
                         else:
-                            setattr(level[0] ,property ,value)
+                            setattr(level[0], property, value)
                         return
             else:
                 # default behavior
@@ -142,9 +141,10 @@ class Track(object):
     new_probabilities = track.mode_probabilities the mode probabilities are
     returned.
     """
+
     def __getattribute__(self, property):
-        if '__state_probability_combination__' in object.__getattribute__(self, '__dict__'):
-            if property in object.__getattribute__(self, '__state_probability_combination__').values():
+        if "__state_probability_combination__" in object.__getattribute__(self, "__dict__"):
+            if property in object.__getattribute__(self, "__state_probability_combination__").values():
                 level_grouped_nodes = anytree.LevelOrderGroupIter(self.states)
                 for level in level_grouped_nodes:
                     if property in level[0].__dict__:
@@ -162,7 +162,6 @@ class Track(object):
             # default behavior
             return object.__getattribute__(self, property)
 
-
     @property
     def posterior(self):
         mean, covariance = self.__get_single_posterior__(self.states)
@@ -171,6 +170,7 @@ class Track(object):
     """
     Returns a single posterior, i.e. a Gaussian mixture of all the states.
     """
+
     def __get_single_posterior__(self, node):
         if node.children:
             for state, probabilities in node.__dict__.items():
@@ -182,17 +182,19 @@ class Track(object):
                         means.append(mean)
                         covariances.append(covariance)
                     means = np.asarray(means).reshape(len(node.children), means[0].shape[0])
-                    covariances = np.asarray(covariances).reshape(len(node.children), covariances[0].shape[-1], covariances[0].shape[-1])
+                    covariances = np.asarray(covariances).reshape(
+                        len(node.children), covariances[0].shape[-1], covariances[0].shape[-1]
+                    )
                     return utilities.gaussian_mixture(means, covariances, probabilities)
         else:
             return node.mean, node.covariance
-
 
 
 class State(object):
     """
     A simple kinematic pdf, which can be equipped with a timestamp and an id.
     """
+
     def __init__(self, mean, covariance, timestamp=None, id=None):
         self.mean = mean
         self.covariance = covariance
@@ -206,6 +208,7 @@ class State(object):
     @property
     def posterior(self):
         return self.mean, self.covariance
+
 
 class TrackState(State, anytree.NodeMixin):
     """
@@ -223,9 +226,10 @@ class TrackState(State, anytree.NodeMixin):
     The 'name' state of each node consists its defining characteristic, which
     for the mode-conditioned pdfs are their kinematic models.
     """
+
     def __init__(self, mean=None, covariance=None, id=None, parent=None, children=None, name=None, **kwargs):
         super().__init__(mean, covariance, id)
-        self.__allowed_probabilities__ = {'visibility_probability', 'mode_probabilities', 'mmsi_probabilities'}
+        self.__allowed_probabilities__ = {"visibility_probability", "mode_probabilities", "mmsi_probabilities"}
         self.parent = parent
         self.name = name if parent is not None else None
         if children:
@@ -236,6 +240,7 @@ class TrackState(State, anytree.NodeMixin):
     Translates the tree structure to a numpy array of the means and covariances,
     with the same shape as the tree.
     """
+
     def get_mean_covariance_array(self, node=None):
         if node is None:
             node = self
@@ -259,12 +264,13 @@ class TrackState(State, anytree.NodeMixin):
     will always be such that all nodes on the same level has the same number of
     children.
     """
+
     @property
     def shape(self):
         node = self.children[0]
         shape = ()
         while True:
-            shape += (len(node.siblings)+1,)
+            shape += (len(node.siblings) + 1,)
             if node.height == 0:
                 break
             node = node.children[0]
@@ -273,9 +279,9 @@ class TrackState(State, anytree.NodeMixin):
     """
     Defining the len()-function to return the number of kinematic pdfs.
     """
+
     def __len__(self):
         return len(self.leaves)
-
 
 
 class Measurement(State):
@@ -283,13 +289,13 @@ class Measurement(State):
         super().__init__(mean=value, covariance=covariance, timestamp=timestamp, id=id)
 
     def __eq__(self, other):
-        return (self.value[0] == other.value[0] and self.value[1] == other.value[1] and self.timestamp == other.timestamp)
+        return self.value[0] == other.value[0] and self.value[1] == other.value[1] and self.timestamp == other.timestamp
 
     def __hash__(self):
         return hash((self.mean[0], self.mean[1], self.timestamp))
 
     def __repr__(self):
-        return f'Measurement: [{self.mean[0]}, {self.mean[1]}]'
+        return f"Measurement: [{self.mean[0]}, {self.mean[1]}]"
 
     @property
     def value(self):

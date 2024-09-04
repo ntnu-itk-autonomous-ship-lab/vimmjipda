@@ -1,12 +1,14 @@
-import numpy as np
 from copy import deepcopy
-from colav_simulator.core.tracking.VIMMJIPDA_interface.VIMMJIPDA_code.code.tracking import utilities
+
+import numpy as np
+from vimmjipda.code.tracking import utilities
 
 
-class Tracker():
+class Tracker:
     """
     Generic tracker class
     """
+
     def __init__(self, filter):
         self.filter = filter
 
@@ -16,7 +18,19 @@ class VIMMJIPDATracker(Tracker):
     The VIMMJIPDA tracker. It can be summarized as a JIPDA with mulitple models
     and modeling of the visibility of the tracks.
     """
-    def __init__(self, filter, clutter_model, data_associator, detection_probability, survival_probability, visibility_transition_matrix, gamma = 3, single_target = False, visibility_off = False):
+
+    def __init__(
+        self,
+        filter,
+        clutter_model,
+        data_associator,
+        detection_probability,
+        survival_probability,
+        visibility_transition_matrix,
+        gamma=3,
+        single_target=False,
+        visibility_off=False,
+    ):
         super().__init__(filter)
         self.clutter_model = clutter_model
         self.detection_probability = detection_probability
@@ -24,9 +38,8 @@ class VIMMJIPDATracker(Tracker):
         self.survival_probability = survival_probability
         self.gamma = gamma
         self.data_associator = data_associator
-        self.single_target = single_target   # only for testing/comparison
-        self.visibility_off = visibility_off # only for testing/comparison
-
+        self.single_target = single_target  # only for testing/comparison
+        self.visibility_off = visibility_off  # only for testing/comparison
 
     def step(self, previous_tracks, measurements, timestamp):
         # Prediction
@@ -37,9 +50,9 @@ class VIMMJIPDATracker(Tracker):
 
         # Clustering
         if self.single_target:
-            clusters, unused_measurements = utilities.one_track_clustering(tracks,measurements)
+            clusters, unused_measurements = utilities.one_track_clustering(tracks, measurements)
         else:
-            clusters, unused_measurements = utilities.single_linkage_clustering(tracks,measurements)
+            clusters, unused_measurements = utilities.single_linkage_clustering(tracks, measurements)
 
         for cluster in clusters:
             # Initialize cluster
@@ -56,7 +69,7 @@ class VIMMJIPDATracker(Tracker):
         track = deepcopy(previous_track)
         track.timestamp = timestamp
 
-        dt = timestamp-previous_track.timestamp
+        dt = timestamp - previous_track.timestamp
 
         self.filter.predict(track, dt)
 
@@ -65,10 +78,8 @@ class VIMMJIPDATracker(Tracker):
         track.visibility_probability = self.predict_visibility_probability(track)
         return track
 
-
-
     def initialize_cluster(self, cluster):
-        cluster.n_z ,cluster.n_x = self.filter.measurement_model.get_measurement_mapping().shape
+        cluster.n_z, cluster.n_x = self.filter.measurement_model.get_measurement_mapping().shape
         cluster.n_tracks = len(cluster.tracks)
         cluster.n_modes = len(cluster.tracks[0].kinematic_models)
         cluster.n_measurements = len(cluster.measurements)
@@ -83,31 +94,43 @@ class VIMMJIPDATracker(Tracker):
         n_t = cluster.n_tracks
         P_D = self.detection_probability
 
-
-        cluster.r = np.zeros((n_t,m_k+1))
-        cluster.eta = np.zeros((n_t,m_k+1))
-        cluster.mu = np.zeros((n_t,M,m_k+1))
-        cluster.w = np.zeros((n_t,m_k+1))
+        cluster.r = np.zeros((n_t, m_k + 1))
+        cluster.eta = np.zeros((n_t, m_k + 1))
+        cluster.mu = np.zeros((n_t, M, m_k + 1))
+        cluster.w = np.zeros((n_t, m_k + 1))
 
         for t, track in enumerate(cluster.tracks):
 
             measurement_likelihoods = cluster.measurement_likelihoods[t]
-            measurement_likelihoods_combined = np.dot(track.mode_probabilities,cluster.measurement_likelihoods[t])
+            measurement_likelihoods_combined = np.dot(track.mode_probabilities, cluster.measurement_likelihoods[t])
 
             mode_probabilities = track.mode_probabilities
 
-            existence_prob_miss = ((1-P_D*track.visibility_probability)*track.existence_probability)/(1-P_D*track.visibility_probability*track.existence_probability)
-            visibility_prob_miss = (1-P_D)*track.visibility_probability/(1-P_D*track.visibility_probability)
+            existence_prob_miss = ((1 - P_D * track.visibility_probability) * track.existence_probability) / (
+                1 - P_D * track.visibility_probability * track.existence_probability
+            )
+            visibility_prob_miss = (1 - P_D) * track.visibility_probability / (1 - P_D * track.visibility_probability)
 
-            cluster.r[t] = np.hstack((np.ones(m_k),existence_prob_miss)).reshape(m_k+1)
-            cluster.eta[t] = np.hstack((np.ones(m_k),visibility_prob_miss)).reshape(m_k+1)
-            cluster.mu[t] = np.concatenate((np.exp(np.log(mode_probabilities.reshape(M,1))+np.log(measurement_likelihoods.reshape(M,m_k)) - \
-                np.log(measurement_likelihoods_combined.reshape(1,m_k))),(mode_probabilities.reshape(M,1).reshape(M,1))),axis=1).reshape((M,m_k+1))
-            cluster.w[t] = np.hstack((P_D*track.visibility_probability*track.existence_probability*measurement_likelihoods_combined,\
-                1-P_D*track.visibility_probability*track.existence_probability)).reshape((m_k+1))
+            cluster.r[t] = np.hstack((np.ones(m_k), existence_prob_miss)).reshape(m_k + 1)
+            cluster.eta[t] = np.hstack((np.ones(m_k), visibility_prob_miss)).reshape(m_k + 1)
+            cluster.mu[t] = np.concatenate(
+                (
+                    np.exp(
+                        np.log(mode_probabilities.reshape(M, 1))
+                        + np.log(measurement_likelihoods.reshape(M, m_k))
+                        - np.log(measurement_likelihoods_combined.reshape(1, m_k))
+                    ),
+                    (mode_probabilities.reshape(M, 1).reshape(M, 1)),
+                ),
+                axis=1,
+            ).reshape((M, m_k + 1))
+            cluster.w[t] = np.hstack(
+                (
+                    P_D * track.visibility_probability * track.existence_probability * measurement_likelihoods_combined,
+                    1 - P_D * track.visibility_probability * track.existence_probability,
+                )
+            ).reshape((m_k + 1))
         return cluster
-
-
 
     def mixture_reduction(self, cluster):
         n_x = cluster.n_x
@@ -125,37 +148,57 @@ class VIMMJIPDATracker(Tracker):
             mu_t_s_j = cluster.mu[t]
             p_t_j = marginal_association_probabilities[t]
 
-            track.existence_probability = np.dot(r_t_j.T,p_t_j).squeeze()
+            track.existence_probability = np.dot(r_t_j.T, p_t_j).squeeze()
 
             if self.visibility_off:
                 track.visibility_probability = 1
             else:
-                track.visibility_probability = np.exp(np.log(np.sum(np.exp(np.log(eta_t_j.reshape(m_k+1)) + \
-                    np.ma.log(p_t_j.reshape(m_k+1)) + np.log(r_t_j.reshape(m_k+1)))))-(np.log(track.existence_probability)))
+                track.visibility_probability = np.exp(
+                    np.log(
+                        np.sum(
+                            np.exp(
+                                np.log(eta_t_j.reshape(m_k + 1))
+                                + np.ma.log(p_t_j.reshape(m_k + 1))
+                                + np.log(r_t_j.reshape(m_k + 1))
+                            )
+                        )
+                    )
+                    - (np.log(track.existence_probability))
+                )
 
+            track.mode_probabilities = np.exp(
+                np.log(
+                    np.sum(
+                        np.exp(
+                            np.log(mu_t_s_j) + np.ma.log(p_t_j.reshape(1, m_k + 1)) + np.log(r_t_j.reshape(1, m_k + 1))
+                        ),
+                        axis=1,
+                    )
+                )
+                - (np.log(track.existence_probability))
+            ).reshape(M)
 
-            track.mode_probabilities = np.exp(np.log(np.sum(np.exp(np.log(mu_t_s_j) + np.ma.log(p_t_j.reshape(1,m_k+1)) + \
-                np.log(r_t_j.reshape(1,m_k+1))),axis=1))-(np.log(track.existence_probability))).reshape(M)
-
-
-            betas = np.exp(np.log(mu_t_s_j) + np.ma.log(p_t_j.reshape(1,m_k+1)) + np.log(r_t_j.reshape(1,m_k+1))- \
-                (np.log(track.mode_probabilities.reshape(M,1)) + np.log(track.existence_probability))).filled(0).reshape(M,m_k+1)
-
-
-            self.filter.update(
-                track,
-                cluster.innovation[t],
-                betas
+            betas = (
+                np.exp(
+                    np.log(mu_t_s_j)
+                    + np.ma.log(p_t_j.reshape(1, m_k + 1))
+                    + np.log(r_t_j.reshape(1, m_k + 1))
+                    - (np.log(track.mode_probabilities.reshape(M, 1)) + np.log(track.existence_probability))
+                )
+                .filled(0)
+                .reshape(M, m_k + 1)
             )
 
+            self.filter.update(track, cluster.innovation[t], betas)
+
             track.mode_probabilities = utilities.ensure_min_mode_probability(0.001, track.mode_probabilities)
-
-
 
     def predict_visibility_probability(self, track):
         if self.visibility_off:
             return 1
-        return self.visibility_transition_matrix[0,0]*track.visibility_probability+self.visibility_transition_matrix[1,0]*(1-track.visibility_probability)
+        return self.visibility_transition_matrix[
+            0, 0
+        ] * track.visibility_probability + self.visibility_transition_matrix[1, 0] * (1 - track.visibility_probability)
 
     def predict_existence_probability(self, track):
-        return self.survival_probability*track.existence_probability
+        return self.survival_probability * track.existence_probability
