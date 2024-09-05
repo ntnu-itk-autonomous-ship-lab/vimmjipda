@@ -6,13 +6,13 @@ visibility verified on maritime radar data". Two data sets are included, which a
 ## How to use the code:
 
 This code requires numpy, matplotlib, scipy, anytree and Shapely. All can be installed by running
-`pip install -r /path/to/requirements.txt`. 
+`pip install -r /path/to/requirements.txt`.
 
-The algorithm is launched by running `run.py`. Here, one can choose which data set to use, and whether any of the properties of the tracker should be removed. One can, for example, to remove the IMM-, multi-target- and visibility-functionality to reduce the tracker to an IPDA. Furthermore, the code is designed to be modular. As such, it should be possible to implement new clutter models, measurement models etc. without too much problems.
+The algorithm is tested by running `run.py` (NOTE: Requires that the data is downloaded by following the paper mentioned in the beginning). Here, one can choose which data set to use, and whether any of the properties of the tracker should be removed. One can, for example, to remove the IMM-, multi-target- and visibility-functionality to reduce the tracker to an IPDA. Furthermore, the code is designed to be modular. As such, it should be possible to implement new clutter models, measurement models etc. without too much problems.
 
 ## Structure:
 
-The code for the tracker itself is contained in the *tracking*-folder. It contains nine files:
+The `code` for the tracker itself is contained in the *tracking*-folder. It contains nine files:
 * `associators.py`: contains data associators.
 * `constructs.py`: contains the different data structures the tracker uses.
 * `filters.py`: contains the state filters.

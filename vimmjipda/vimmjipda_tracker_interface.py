@@ -163,8 +163,8 @@ class VIMMJIPDA(cs_trackers.ITracker):
             or abs(mean[3]) > 12.0
             or cov[0, 0] > 50.0**2
             or cov[1, 1] > 50.0**2
-            or cov[2, 2] > 4.0
-            or cov[3, 3] > 4.0
+            or cov[2, 2] > 5.0
+            or cov[3, 3] > 5.0
         ):
             return True
         return False
