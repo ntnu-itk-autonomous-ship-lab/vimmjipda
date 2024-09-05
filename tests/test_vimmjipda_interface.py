@@ -17,6 +17,7 @@ def test_vimmjipda_interface() -> None:
     rparams = sensing.RadarParams()
     rparams.generate_clutter = True
     rparams.detection_probability = 0.95
+    rparams.measurement_rate = 0.5
     rparams.max_range = 1000.0
     radar = sensing.Radar(rparams)
     radar.reset(seed=0)
