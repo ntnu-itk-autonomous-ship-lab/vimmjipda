@@ -1,4 +1,11 @@
+from pathlib import Path
+import sys
+
+vimmjipda_path = Path(__file__).resolve().parents[3] / "vimmjipda"
+sys.path.append(str(vimmjipda_path))
+
 import vimmjipda.code.setup as vimmjipda_setup
+
 
 if __name__ == "__main__":
     from vimmjipda.code import import_data, plotting
