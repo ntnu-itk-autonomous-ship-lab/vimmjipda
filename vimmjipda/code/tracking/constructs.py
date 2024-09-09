@@ -60,7 +60,8 @@ class Cluster(object):
             measurement_likelihoods_t = np.zeros(estimate.states.shape + (self.n_measurements,))
             innovation = self.innovation[t]
 
-            S_inv = self.S_inv[t] + eps * np.eye(self.S[t].shape[0])
+            S_regularized = self.S[t] + eps * np.eye(self.S[t].shape[0])
+            S_inv = np.linalg.inv(S_regularized)
             cond = np.linalg.cond(self.S[t])
 
             if cond < 1/eps:
