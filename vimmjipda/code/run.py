@@ -5,6 +5,7 @@ vimmjipda_path = Path(__file__).resolve().parents[3] / "vimmjipda"
 sys.path.append(str(vimmjipda_path))
 
 import vimmjipda.code.setup as vimmjipda_setup
+# import numpy as np
 
 
 if __name__ == "__main__":
@@ -49,7 +50,7 @@ if __name__ == "__main__":
         # print(timestamp)
         # for meas in measurement_set:
         #    print(meas, type(meas))
-        manager.step(measurement_set, float(timestamp), ownship=ownship_pos)
+        manager.step(measurement_set, float(timestamp.item()), ownship=ownship_pos)
         # print(f'Active tracks: {np.sort([track.index for track in manager.tracks])}\n')
 
     # plotting

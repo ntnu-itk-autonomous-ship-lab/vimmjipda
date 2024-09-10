@@ -5,7 +5,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN pip install -U --no-cache-dir \
     anytree==2.8.0 \
-    descartes==1.1.0 \
     matplotlib==3.2.1 \
     numpy==1.19.4 \
     scipy==1.5.4 \
