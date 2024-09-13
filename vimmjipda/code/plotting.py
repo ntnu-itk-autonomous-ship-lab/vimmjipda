@@ -1,3 +1,9 @@
+from pathlib import Path
+import sys
+
+vimmjipda_path = Path(__file__).resolve().parents[3] / "vimmjipda"
+sys.path.append(str(vimmjipda_path))
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
@@ -7,7 +13,7 @@ from matplotlib.cm import get_cmap
 from shapely.geometry.point import Point
 from shapely import affinity
 from shapely.geometry import Polygon
-from descartes import PolygonPatch
+from matplotlib.patches import Polygon as MplPolygon
 
 # define font size, and size of plots
 matplotlib.rcParams['font.size'] = 7
@@ -32,9 +38,7 @@ class ScenarioPlot(object):
         plot_measurements(measurements, self.ax, timestamps, marker_size=self.measurement_marker_size)
         if ground_truth:
             plot_track_pos(ground_truth, self.ax, color='k', marker_size=self.track_marker_size)
-
-
-        
+    
         plot_track_pos(
             track_history,
             self.ax,
@@ -50,10 +54,7 @@ class ScenarioPlot(object):
         self.ax.set_xlabel('East [m]')
         self.ax.set_ylabel('North [m]')
 
-        self.fig.savefig(f'/home/ragnarnw/Github/colav_simulator/colav_simulator/core/tracking/VIMMJIPDA/results/output.pdf',dpi=600, format='pdf')  #Absolute filepath used
-
-
-
+        self.fig.savefig(vimmjipda_path / 'vimmjipda/results/output.pdf',dpi=600, format='pdf')
 
 
 def plot_measurements(measurements_all, ax, timestamps, marker_size=5):
@@ -92,14 +93,16 @@ def plot_track_pos(track_history, ax, add_index=False, add_covariance_ellipses=F
             facecolor = matplotlib.colors.colorConverter.to_rgba(selected_color, alpha=0.16)
             for track in trajectory:
                 covariance_ellipse = get_ellipse(track.posterior[0][0:3:2], track.posterior[1][0:3:2,0:3:2])
-                ax.add_patch(PolygonPatch(covariance_ellipse, facecolor = facecolor, edgecolor = edgecolor))
+                covariance_ellipse_coords = list(covariance_ellipse.exterior.coords)
+                ax.add_patch(MplPolygon(covariance_ellipse_coords, facecolor = facecolor, edgecolor = edgecolor))
 
         if add_validation_gates:
             edgecolor = matplotlib.colors.colorConverter.to_rgba(selected_color, alpha=0.5)
             facecolor = matplotlib.colors.colorConverter.to_rgba(selected_color, alpha=0.16)
             for track in trajectory[1:]: # the first track estimate has no validation gate
                 validation_gate = get_validation_gate(track, gamma=gamma)
-                ax.add_patch(PolygonPatch(validation_gate, facecolor = facecolor, edgecolor = edgecolor))
+                validation_gate_coords = list(validation_gate.exterior.coords)
+                ax.add_patch(MplPolygon(validation_gate_coords, facecolor = facecolor, edgecolor = edgecolor))
 
         if add_index:
             ax.text(positions[-1,0], positions[-1,2]-5, str(index), color='black')

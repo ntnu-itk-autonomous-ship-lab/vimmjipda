@@ -1,3 +1,9 @@
+from pathlib import Path
+import sys
+
+vimmjipda_path = Path(__file__).resolve().parents[3] / "vimmjipda"
+sys.path.append(str(vimmjipda_path))
+
 import numpy as np
 import scipy.io as io
 from vimmjipda.code.parameters import measurement_params
@@ -27,9 +33,7 @@ def ensure_correct_state_dimension(state_list):
 
 
 def final_dem(t_min=0, t_max=10000):
-    mat = io.loadmat(
-        "/home/ragnarnw/Github/colav_simulator/colav_simulator/core/tracking/VIMMJIPDA/data/final_demo.mat"
-    )  # Using absolute path
+    mat = io.loadmat(vimmjipda_path / "vimmjipda/data/final_demo.mat")
     for key, value in mat.items():
         if key == "measurements":
             measurements = np.asarray(value)[0]
@@ -64,12 +68,12 @@ def final_dem(t_min=0, t_max=10000):
     timestamps = timestamps - timestamps[0]
     valid_indexes = np.where((t_min <= timestamps.squeeze()) & (timestamps.squeeze() <= t_max))
     timestamps = timestamps[valid_indexes]
-    print(len(timestamps))
+    # print(len(timestamps))
     measurements_all = np.array([set() for i in valid_indexes[0]])
-    print(measurements_all)
+    # print(measurements_all)
 
     for i, (measurement_set, timestamp) in enumerate(zip(measurements[valid_indexes], timestamps)):
-        print(measurement_set)
+        # print(measurement_set)
         for measurement in measurement_set:
             # print(measurement)
             measurements_all[i].add(
@@ -92,8 +96,7 @@ def final_dem(t_min=0, t_max=10000):
 
 
 def joyride(t_min=0, t_max=10000):
-    data = io.loadmat("/home/ragnarnw/Github/colav_simulator/colav_simulator/core/tracking/VIMMJIPDA/data/joyride.mat")
-
+    data = io.loadmat(vimmjipda_path / "vimmjipda/data/joyride.mat")
     for key, value in data.items():
         if key == "measurements":
             measurements = np.asarray(value).squeeze()

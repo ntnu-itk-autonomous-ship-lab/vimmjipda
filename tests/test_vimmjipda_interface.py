@@ -2,15 +2,20 @@
     Test module for the VIMMJIPDA interface class. NOTE: The colav-simulator must be installed to run this test.
 """
 
-import colav_simulator.common.map_functions as mapf
+import pathlib
+import sys
+
+vimmjipda_root = pathlib.Path(__file__).resolve().parents[1]
+sys.path.append(str(vimmjipda_root))
+
 import colav_simulator.common.miscellaneous_helper_methods as mhm
+import colav_simulator.common.map_functions as mapf
 import colav_simulator.core.sensing as sensing
+import vimmjipda.vimmjipda_tracker_interface as vti
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as sgeo
-import vimmjipda.paths as paths
-import vimmjipda.vimmjipda_tracker_interface as vti
 
 
 def test_vimmjipda_interface() -> None:
@@ -22,7 +27,7 @@ def test_vimmjipda_interface() -> None:
     radar = sensing.Radar(rparams)
     radar.reset(seed=0)
 
-    vimmjipda_params = vti.VIMMJIPDAParams.from_yaml(paths.config / "vimmjipda.yaml")
+    vimmjipda_params = vti.VIMMJIPDAParams.from_yaml(vimmjipda_root / "config/vimmjipda.yaml")
     vimmjipda_tracker = vti.VIMMJIPDA([radar], vimmjipda_params)
 
     ownship_state = np.array([0.0, 0.0, 0.0, 2.0, 0.0, 0.0])
