@@ -8,4 +8,4 @@ The interface for running the VIMMJIPDA in the colav_simulator was created by Ra
 ## Installation
 Run `pip install -e .` in the root folder of this repository. Requires that the `colav-simulator` is installed as an editable package.
 
-Check the installation by running the interface test file with `python3 tests/test_vimmjipda_interface.py`. See examples for configuring and setting the VIMMJIPDA for use with a COLAV-algorithm in the `tests/test_simulator_vimmjipda.py` in the `colav-simulator` repository at <https://github.com/NTNU-Autoship-Internal/colav_simulator>.
+Check the installation by running the interface test file with `python3 tests/test_vimmjipda_interface.py`. See examples for configuring and setting the VIMMJIPDA for use with a COLAV-algorithm in the `tests/test_simulator_vimmjipda.py` in the `colav-simulator` repository at <https://github.com/NTNU-TTO/colav-simulator>.
