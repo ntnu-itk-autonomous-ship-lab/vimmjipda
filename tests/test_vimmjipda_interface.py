@@ -1,21 +1,26 @@
-"""
-    Test module for the VIMMJIPDA interface class. NOTE: The colav-simulator must be installed to run this test.
-"""
-
 import pathlib
 import sys
 
-vimmjipda_root = pathlib.Path(__file__).resolve().parents[1]
-sys.path.append(str(vimmjipda_root))
-
-import colav_simulator.common.miscellaneous_helper_methods as mhm
-import colav_simulator.common.map_functions as mapf
-import colav_simulator.core.sensing as sensing
-import vimmjipda.vimmjipda_tracker_interface as vti
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as sgeo
+
+import vimmjipda.vimmjipda_tracker_interface as vti
+
+vimmjipda_root = pathlib.Path(__file__).resolve().parents[1]
+sys.path.append(str(vimmjipda_root))
+
+
+try:
+    import colav_simulator.common.map_functions as mapf
+    import colav_simulator.common.miscellaneous_helper_methods as mhm
+    import colav_simulator.core.sensing as sensing
+except ImportError as e:
+    raise ImportError(
+        "colav_simulator is required to run this test. "
+        "Please install it with: pip install colav-simulator"
+    ) from e
 
 
 def test_vimmjipda_interface() -> None:
@@ -27,7 +32,9 @@ def test_vimmjipda_interface() -> None:
     radar = sensing.Radar(rparams)
     radar.reset(seed=0)
 
-    vimmjipda_params = vti.VIMMJIPDAParams.from_yaml(vimmjipda_root / "config/vimmjipda.yaml")
+    vimmjipda_params = vti.VIMMJIPDAParams.from_yaml(
+        vimmjipda_root / "config/vimmjipda.yaml"
+    )
     vimmjipda_tracker = vti.VIMMJIPDA([radar], vimmjipda_params)
 
     ownship_state = np.array([0.0, 0.0, 0.0, 2.0, 0.0, 0.0])
@@ -57,7 +64,9 @@ def test_vimmjipda_interface() -> None:
         t = k * dt
 
         ownship_state_vxvy = mhm.convert_state_to_vxvy_state(ownship_state)
-        tracks, meas = vimmjipda_tracker.track(t, dt, true_do_states, ownship_state_vxvy)
+        tracks, meas = vimmjipda_tracker.track(
+            t, dt, true_do_states, ownship_state_vxvy
+        )
 
         for track in tracks:
             if track[0] not in track_labels:
@@ -88,25 +97,41 @@ def test_vimmjipda_interface() -> None:
                 mcolor = "co"
                 if sensor_meas_tup[0] >= 0:
                     mcolor = "ro"
-                hdl = ax.plot(sensor_meas_tup[1][1], sensor_meas_tup[1][0], mcolor, markersize=5)
+                hdl = ax.plot(
+                    sensor_meas_tup[1][1], sensor_meas_tup[1][0], mcolor, markersize=5
+                )
                 meas_handles.append(hdl[0])
 
         for td in track_data.values():
             states = np.array([tup[0] for tup in td]).T
             last_cov = td[-1][1]
-            ellipse_x, ellipse_y = mhm.create_probability_ellipse(last_cov, probability=0.65)
-            ell_geometry = sgeo.Polygon(zip(ellipse_y + states[1, -1], ellipse_x + states[0, -1]))
-            ell_handles.append(ax.fill(*ell_geometry.exterior.xy, color="green", alpha=0.3)[0])
+            ellipse_x, ellipse_y = mhm.create_probability_ellipse(
+                last_cov, probability=0.65
+            )
+            ell_geometry = sgeo.Polygon(
+                zip(ellipse_y + states[1, -1], ellipse_x + states[0, -1])
+            )
+            ell_handles.append(
+                ax.fill(*ell_geometry.exterior.xy, color="green", alpha=0.3)[0]
+            )
 
             state_handles.append(ax.plot(states[1, :], states[0, :])[0])
 
         os_poly = mapf.create_ship_polygon(
-            x=ownship_state[0], y=ownship_state[1], heading=ownship_state[2], length=10.0, width=2.0
+            x=ownship_state[0],
+            y=ownship_state[1],
+            heading=ownship_state[2],
+            length=10.0,
+            width=2.0,
         )
         os_handle = ax.fill(*os_poly.exterior.xy, color="b", alpha=0.5)[0]
 
         do_poly = mapf.create_ship_polygon(
-            x=true_do_states[0][1][0], y=true_do_states[0][1][1], heading=np.pi / 2, length=10.0, width=3.0
+            x=true_do_states[0][1][0],
+            y=true_do_states[0][1][1],
+            heading=np.pi / 2,
+            length=10.0,
+            width=3.0,
         )
         do_handle = ax.fill(*do_poly.exterior.xy, true_do_states[0][1][0], "r")[0]
 
@@ -133,7 +158,10 @@ def test_vimmjipda_interface() -> None:
 
         plt.pause(0.1)
 
-    print("Num tracks after the run: ", len(vimmjipda_tracker.get_track_information(ownship_state)[0]))
+    print(
+        "Num tracks after the run: ",
+        len(vimmjipda_tracker.get_track_information(ownship_state)[0]),
+    )
 
     vimmjipda_tracker.reset()
 
