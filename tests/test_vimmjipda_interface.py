@@ -1,7 +1,6 @@
 import pathlib
 import sys
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely.geometry as sgeo
@@ -19,7 +18,7 @@ try:
 except ImportError as e:
     raise ImportError(
         "colav_simulator is required to run this test. "
-        "Please install it with: pip install colav-simulator"
+        "Please install it with: uv sync --group test"
     ) from e
 
 
@@ -42,7 +41,6 @@ def test_vimmjipda_interface() -> None:
         (0, np.array([50.0, 0.0, 0.0, 2.0]), 10.0, 3.0)
     ]  # dynamic obstacle info on the form (ID, state, length, width)
 
-    matplotlib.use("TkAgg")
     fig, ax = plt.subplots()
     plt.ion()
     plt.show(block=False)
