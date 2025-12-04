@@ -7,6 +7,12 @@ The interface for running the VIMMJIPDA in the colav_simulator was created by Ra
 
 ## Installation
 
+Install `uv` (<https://docs.astral.sh/uv/getting-started/installation/>):
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Install project:
 ```bash
 uv sync
 ```
